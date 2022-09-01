@@ -163,12 +163,12 @@
 */
         async function run() {
             //const model = await tflite.loadTFLiteModel("https://storage.googleapis.com/tfweb/models/cartoongan_fp16.tflite");
-            const model = await tflite.loadTFLiteModel("./nails1105.tflite");
+            //const model = await tflite.loadTFLiteModel("./nails1105.tflite");
             //const model = await tflite.loadTFLiteModel("./nails_segmentation.tflite");
 
             // load model
-            //const path = "./model_nails1105/model.json";
-            //const model = await tf.loadGraphModel(path); // TensorFlow SavedModelまたはTensorFlow HubモジュールのAPI 
+            const path = "./model_nails1105/model.json";
+            const model = await tf.loadGraphModel(path); // TensorFlow SavedModelまたはTensorFlow HubモジュールのAPI 
             //const model = await tf.loadLayersModel(path);// Kerasモデル
             
             const input = tf.browser
