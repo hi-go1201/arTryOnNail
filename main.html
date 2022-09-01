@@ -62,7 +62,9 @@
 
         async function initModel() {
             try {
-                let model = await tflite.loadTFLiteModel("./nails1105.tflite");
+                //let model = await tflite.loadTFLiteModel("./nails1105.tflite");
+                const path = "./model_nails1105/model.json";
+                let model = await tf.loadGraphModel(path); // TensorFlow SavedModelまたはTensorFlow HubモジュールのAPI 
                 MODEL_SIZE = model.input.shape;
                 return model;
             } catch (e) {
