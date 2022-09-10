@@ -13,7 +13,8 @@
     <div></div><video id="video"></video></div>
     <span id="result" style="font-size: 48pt;"></span>
     <div><canvas id="result1"></canvas></div>
-    <!--div><canvas id="result2"></canvas></div-->
+    <div><canvas id="input_img" style="display: none;"></canvas></div>
+    <div><canvas id="output_img"></canvas></div>
     <p id="time"></p>
 
     <script src="https://unpkg.com/three@0.140.0/examples/js/libs/stats.min.js" crossorigin="anonymous"></script>
@@ -63,7 +64,7 @@
         async function initModel() {
             try {
                 //let model = await tflite.loadTFLiteModel("./nails1105.tflite");
-                const path = "./model_nails1105/model.json";
+                const path = "./model_nails1105_lite/model.json";
                 let model = await tf.loadGraphModel(path); // TensorFlow SavedModelまたはTensorFlow HubモジュールのAPI 
                 MODEL_SIZE = model.input.shape;
                 return model;
@@ -90,12 +91,12 @@
                 img = img.cast("float32").div(127.5).sub(1);
 
                 img = imgCam
-                .toFloat()
-                .resizeNearestNeighbor([224, 224])
-                // Normalize.
-                .expandDims()
-                .div(127.5)
-                .sub(1);
+                    .toFloat()
+                    .resizeNearestNeighbor([224, 224])
+                    // Normalize.
+                    .expandDims()
+                    .div(127.5)
+                    .sub(1);
 
                 console.log(img.shape);
 
@@ -110,67 +111,17 @@
             //return processedImg.expandDims();
             return processedImg;
         }
-/*
-        (async function () {
-            const cam = await initCam();
-            const model = await initModel();
-            while(model == null){
-                console.log("loading model...");
-            }
-            if (cam == null || model == null) {
-                document.getElementById("result").innerHTML = "init failed"
-                return;
-            }
 
-            while (1) {
-                // Get image and pre process
-                const t0 = performance.now();
-                const inputTensor = await getImage(cam);
-
-                // Inference
-                const t1 = performance.now();
-                let input_reshape = tf.transpose(inputTensor, perm = [0, 3, 1, 2]);
-                const outputTensor = await model.predict([input_reshape]);
-                input_reshape.dispose();
-                inputTensor.dispose();
-
-                // Post process
-                //const t2 = performance.now();
-                //const maxScoreIndex = await tf.argMax(scores).array();
-
-                // Display result
-                const t2 = performance.now();
-                // Draw on canvas.
-                let canvas = document.getElementById("result1");
-                canvas.width = outputTensor.shape[2];
-                canvas.height = outputTensor.shape[1];
-                console.log(outputTensor.shape);
-                outputTensor.print();
-                let tmp = outputTensor.squeeze();
-                console.log(tmp.shape);
-                tmp.print();
-                await tf.browser.toPixels(tmp, canvas);
-
-                //console.log(scores);
-                //document.getElementById("result").innerHTML = "Num: " + maxScoreIndex + " (" + scores[maxScoreIndex].toFixed(3) + ")";
-
-                const t3 = performance.now();
-                document.getElementById("time").innerHTML = `Time[ms]: Total = ${(t3 - t0).toFixed(3)},
-                PreProcess = ${(t1 - t0).toFixed(3)},
-                Inference = ${(t2 - t1).toFixed(3)}`;
-            }
-        }());
-*/
         async function run() {
             //const model = await tflite.loadTFLiteModel("https://storage.googleapis.com/tfweb/models/cartoongan_fp16.tflite");
             //const model = await tflite.loadTFLiteModel("./nails1105.tflite");
             //const model = await tflite.loadTFLiteModel("./nails_segmentation.tflite");
 
             // load model
-            const path = "./model_nails1105/model.json";
+            const path = "./model_nails1105_lite/model.json";
             const model = await tf.loadGraphModel(path); // TensorFlow SavedModelまたはTensorFlow HubモジュールのAPI 
             //const model = await tf.loadLayersModel(path);// Kerasモデル
-            
+
             const input = tf.browser
                 .fromPixels(document.getElementById('input_image'), 3)
                 //.fromPixels(document.getElementById('input_image'), 1)
@@ -189,315 +140,20 @@
             console.log(input_reshape.shape);
             input_reshape.print();
 
-            /*
-            //nailtracking用に特別な処理必要
-            //const test = await model.executeAsync();
-            let input_dtype = tf.cast(input, "int32");
-            const output = await model.executeAsync(input_dtype);
-            console.log(output);
-            console.log(output[0]);
-            console.log(output[1]);
-            console.log(output[2]);
-            console.log(output[3]);
-            //[detection_classes,detection_scores,num_detections,detection_boxes]
-            const boxes = output[3].dataSync();
-            const scores = output[1].dataSync();
-            const classes = output[0].dataSync();
-            const detections = output[2].dataSync();
 
-            console.log(boxes);
-            console.log(scores);
-            console.log(classes);
-            console.log(detections);
-
-            let classesDir = {
-                1: {
-                    name: 'nail',
-                    id: 1,
-                },
-                2: {
-                    name: 'Class name 2',
-                    id: 2,
-                }
-            }
-
-
-            function buildDetectedObjects(scores, threshold, imageWidth, imageHeight, boxes, classes, classesDir) {
-                const detectionObjects = []
-                scores.forEach((score, i) => {
-                    if (score > threshold) {
-                        const bbox = [];
-                        const minY = boxes[i * 4] * imageHeight;
-                        const minX = boxes[i * 4 + 1] * imageWidth;
-                        const maxY = boxes[i * 4 + 2] * imageHeight;
-                        const maxX = boxes[i * 4 + 3] * imageWidth;
-                        bbox[0] = minX;
-                        bbox[1] = minY;
-                        bbox[2] = maxX - minX;
-                        bbox[3] = maxY - minY;
-
-                        detectionObjects.push({
-                            class: classes[i],
-                            label: classesDir[classes[i]].name,
-                            score: score.toFixed(4),
-                            bbox: bbox
-                        })
-                    }
-                })
-
-                console.log(detectionObjects);
-                return detectionObjects;
-            }
-            buildDetectedObjects(scores,0.3,);
-            */
-
-            // Run the inference and get the output tensors.
-            //const outputTensor = model.predict([input]);
-            //const outputTensor = model.predict([input_reshape]);
-            // Process and draw the result on the canvas.
-
-            // De-normalize.
-            //let threshold_tensor = outputTensor.add(1).mul(127.5).div(tf.scalar(255));
-            //console.log("output");
-            //threshold_tensor.print();
-            //threshold_tensor = threshold_tensor.cast("float32");//.div(tf.scalar(128));  /* 0.0 - 2.0 */
-            //threshold_tensor.print();
-            //threshold_tensor = threshold_tensor.clipByValue(0.47, 1.0);//.sub(0.5); /* 0.5 - 1.5 -> 0.0 - 1.0 */
-
-            //threshold_tensor = tf.cast(threshold_tensor.add(0.53), "int32");
-            //threshold_tensor = threshold_tensor.cast("float32");
-            //console.log(threshold_tensor.shape);
-            //threshold_tensor.print();
-            //threshold_tensor = tf.cast(threshold_tensor, "int32");
-            //threshold_tensor.print();
-            //threshold_tensor.max().print();
-/*
-            // De-normalize.
-            const data = outputTensor.add(1).mul(127.5);
-            data.print();
-            // Convert from RGB to RGBA, and create and return ImageData.
-            const rgb = Array.from(data.dataSync());
-            const rgba = [];
-            for (let i = 0; i < rgb.length / 3; i++) {
-                for (let c = 0; c < 3; c++) {
-                    rgba.push(rgb[i * 3 + c]);
-                }
-                rgba.push(255);
-            }
-*/
-            // Draw on canvas.
-            //const imageData = new ImageData(Uint8ClampedArray.from(rgba), 160, 192);
-            //let canvas = document.getElementById("result2");
-            //canvas.width = outputTensor.shape[2];
-            //canvas.height = outputTensor.shape[1];
-            //const ctx = canvas.getContext("2d");
-            //ctx.putImageData(imageData, 0, 0);
-            //console.log(outputTensor.shape);
-            //outputTensor.print();
-            //let tmp = threshold_tensor.squeeze();
-            //console.log(tmp.shape);
-            //tmp.print();
-            //await tf.browser.toPixels(tmp, canvas);
-/*
-            var result = document.getElementById('input_image');
-            var result_width = result.naturalWidth;
-            var result_height = result.naturalHeight;
-            let canvas2 = document.getElementById("result1");
-            canvas2.width = result_width;
-            canvas2.height = result_height;
-            canvas2.width = canvas.width;
-            canvas2.height = canvas.height;
-            let ip = new ImageProc()
-            ip.main(canvas2, canvas);
-            //var ctx = canvas2.getContext('2d');
-            //ctx.drawImage(canvas, 0, 0, result_width, result_height);
-*/
             MODEL_SIZE = model.inputs[0].shape;
             const cam = await initCam();
 
-            //while (1) {
+            //await process(model, cam);
+            setInterval(() => {
+                process(model, cam); //three jsの処理を少しずらさないとios safariでtexture.needsUpdateが反映されない
+            //}, 2000);
+            }, 1);
 
-                //await process(model, cam);
-                setInterval(() => {
-                    process(model, cam); //three jsの処理を少しずらさないとios safariでtexture.needsUpdateが反映されない
-                }, 2000);
-                /*
-                // Get image and pre process
-                const t0 = performance.now();
-                const inputTensor = await getImage(cam);
-
-                // Inference
-                const t1 = performance.now();
-                //let input_reshape = tf.transpose(inputTensor, perm = [0, 3, 1, 2]);
-                const outputTensor = await model.predict([inputTensor]);
-                //input_reshape.dispose();
-                inputTensor.dispose();
-
-                // Post process
-                //const t2 = performance.now();
-                //const maxScoreIndex = await tf.argMax(scores).array();
-
-                // Display result
-                const t2 = performance.now();
-                // Draw on canvas.
-                let canvas = document.getElementById("result1");
-                canvas.width = outputTensor.shape[2];
-                canvas.height = outputTensor.shape[1];
-                console.log(outputTensor.shape);
-                outputTensor.print();
-                let tmp = outputTensor.squeeze();
-                console.log(tmp.shape);
-                tmp.print();
-                await tf.browser.toPixels(tmp, canvas);
-
-                //console.log(scores);
-                //document.getElementById("result").innerHTML = "Num: " + maxScoreIndex + " (" + scores[maxScoreIndex].toFixed(3) + ")";
-
-                const t3 = performance.now();
-                document.getElementById("time").innerHTML = `Time[ms]: Total = ${(t3 - t0).toFixed(3)},
-                PreProcess = ${(t1 - t0).toFixed(3)},
-                Inference = ${(t2 - t1).toFixed(3)}`;
-                //return;
-                */
-            //}
-
-            /*
-                        const outputTensor = tf.tidy(() => {
-                            // Get pixels data from an image.
-                            const img = tf.browser.fromPixels(document.getElementById('input_image')).resizeNearestNeighbor([257, 257]);
-                            // Normalize (might also do resize here if necessary).
-                            const input = tf.sub(tf.div(tf.expandDims(img), 127.5), 1);
-                            input.print();
-                            let a = input.add(tf.scalar(1)).div(tf.scalar(2));
-                            a.print();
-                            // Run the inference.
-                            let outputTensor = model.predict(a);
-                            //let a = tf.mul(tf.add(outputTensor, 1), 127.5);
-                            outputTensor.print();
-                            // De-normalize the result.
-                            return outputTensor;//tf.mul(tf.add(outputTensor, 1), 127.5)
-                        });
-                        console.log(outputTensor);
-                        outputTensor.print();
-                        let outputTmp = outputTensor.div(tf.scalar(-1 * 257 * 257 * 3));
-                        outputTmp.min().print();
-                        outputTmp.max().print();
-                        outputTmp.print();
-                        //outputTmp = outputTmp.add(tf.scalar(255));
-                        //outputTmp = tf.cast(outputTmp, 'int32');
-                        outputTmp = outputTmp.div(tf.scalar(2));
-                        outputTmp.min().print();
-                        outputTmp.max().print();
-                        outputTmp.print();
-                        outputTmp = outputTmp.squeeze();
-                        console.log(outputTmp.shape);
-                        let output = tf.unstack(outputTmp, 2);
-            
-            
-            
-            
-                        let canvas = document.getElementById("result1");
-                        canvas.width = outputTensor.shape[2];
-                        canvas.height = outputTensor.shape[1];
-                        await tf.browser.toPixels(output[0], canvas);
-                        canvas = document.getElementById("result2");
-                        canvas.width = outputTensor.shape[2];
-                        canvas.height = outputTensor.shape[1];
-                        await tf.browser.toPixels(output[1], canvas);
-            
-            
-                        console.log(input.shape);
-                        input.print();
-                        input.min().print();
-                        input.max().print();
-                        //const x = tf.browser.fromPixels(document.getElementById('input_image'), 1).reshape([1, 257, 257, 3]).div(tf.scalar(255));
-                        const y = model.predict(input); // [1, 10]
-                        console.log(y);
-                        y.print();
-                        let tmp = y.div(tf.scalar(-1 * 257 * 257 * 10));
-                        tmp.print();
-                        tmp = tmp.squeeze();
-                        console.log(tmp.shape);
-                        output = tf.unstack(tmp, 2);
-                        await tf.browser.toPixels(output[0], canvas);
-            
-                        /*
-                        // De-normalize.
-                        const data = y.add(1).mul(127.5);
-                        // Convert from RGB to RGBA, and create and return ImageData.
-                        const rgb = Array.from(data.dataSync());
-                        const rgba = [];
-                        for (let i = 0; i < rgb.length / 3; i++) {
-                            for (let c = 0; c < 3; c++) {
-                                rgba.push(rgb[i * 3 + c]);
-                            }
-                            rgba.push(255);
-                        }
-                        // Draw on canvas.
-                        const imageData = new ImageData(Uint8ClampedArray.from(rgba), 257, 257);
-                        const canvas = document.createElement('canvas');
-                        canvas.width = y.shape.width
-                        canvas.height = y.shape.height
-                        const ctx = canvas.getContext("2d");
-                        ctx.putImageData(imageData, 0, 0);
-                        */
-
-            /*
-                        //const canvas = document.createElement('canvas');
-                        const canvas = document.getElementById("result1");
-                        canvas.width = y.shape[2];
-                        canvas.height = y.shape[1];
-                        const canvas2 = document.getElementById("result2");
-                        canvas2.width = y.shape[2];
-                        canvas2.height = y.shape[1];
-                        let tmp2 = tf.unstack(y, 3);
-                        //console.log(tmp2[0].shape);
-                        //tmp2[0].print();
-                        //console.log(tmp2[1].shape);
-                        //tmp2[1].print();
-            
-                        let result1 = tmp2[0].squeeze();
-                        console.log(result1.shape);
-                        result1.print();
-                        result1.min().print();
-                        result1 = result1.div(-1 * 257 * 257);
-                        result1.print();
-                        //result1 = result1.div(tf.scalar(4));
-                        //result1.print();
-                        await tf.browser.toPixels(result1, canvas);
-            
-                        let result2 = tmp2[1].squeeze();
-                        console.log(result2.shape);
-                        result2.print();
-                        result2 = result2.div(tf.scalar(-1 * 257 * 257 * 255));
-                        result2.print();
-                        await tf.browser.toPixels(result2, canvas2);
-            
-            
-                        tmp = y.div(tf.scalar(-1 * 257 * 257 * 10));
-                        tmp = tmp.mean(3, true);
-                        tmp.print();
-                        //tmp = y2.div(tf.scalar(-1*257*257*10));
-                        //tmp.print();
-                        //console.log(tmp);
-                        //const y2 = y.reshape([257,257,3]);
-                        tmp = tmp.squeeze();
-                        console.log(tmp);
-                        tmp.print();
-                        //await tf.browser.toPixels(tmp, canvas2);
-                        //console.log(y2);
-                        //const y3 = y2.mean(2, true);
-                        //const y3 = tf.unstack(y2, 2);
-                        //console.log(y3);
-                        //console.log(canvas.width);
-                        //await tf.browser.toPixels(y2, canvas);
-                        //tf.browser.toPixels(y3, document.getElementById("canvas"));
-                        document.getElementById('pred').textContent = y.reshape([-1]).argMax().arraySync();
-            */
         }
         run();
 
-        async function process(model, cam){
+        async function process(model, cam) {
             stats.update(); // 毎フレームごとにstats.update()を呼ぶ必要がある。
 
             // Get image and pre process
@@ -512,6 +168,23 @@
             const outputTensor = await model.predict([inputTensor]);
             //console.log(outputTensor.shape);
             //input_reshape.dispose();
+            let tmp_canvas = document.getElementById("input_img");
+            tmp_canvas.width = inputTensor.shape[3];
+            tmp_canvas.height = inputTensor.shape[2];
+            console.log(inputTensor.shape);
+            inputTensor.print();
+            let input_reshape = inputTensor.squeeze();
+            console.log(input_reshape.shape);
+            input_reshape.print();
+            let tmp_inputImg = tf.transpose(input_reshape, perm = [1, 2, 0]);
+            // De-normalize.
+            let threshold_tensor = tmp_inputImg.add(1).mul(127.5).div(tf.scalar(255));
+            console.log(tmp_inputImg.shape);
+            await tf.browser.toPixels(threshold_tensor, tmp_canvas);
+            threshold_tensor.dispose();
+            tmp_inputImg.dispose();
+            input_reshape.dispose();
+
             inputTensor.dispose();
 
             // Display result
@@ -528,6 +201,34 @@
             await tf.browser.toPixels(tmp, canvas);
             outputTensor.dispose();
             tmp.dispose();
+
+            // opencvで画像合成：爪塗りつぶし
+            //videoソース読み込み
+            let src = cv.imread('input_img');
+            let mask = cv.imread('result1');
+            let dst = new cv.Mat(src.cols, src.rows, cv.CV_8UC3);
+
+            for (var i = 0; i < src.rows; i++) {
+                for (var j = 0; j < src.cols; j++) {
+                    //完全な二値化はしていないので、黒部分でも2,5など必ずしも0ではないので、閾値で場合分け
+                    if (mask.ucharPtr(i, j)[0] < 50) {
+                        dst.ucharPtr(i, j)[0] = src.ucharPtr(i, j)[0];
+                        dst.ucharPtr(i, j)[1] = src.ucharPtr(i, j)[1];
+                        dst.ucharPtr(i, j)[2] = src.ucharPtr(i, j)[2];
+                    }
+                    else {
+                        // ToDo:塗り潰したい色情報をネイル画像から抽出して合成
+                        // 現状はひとまず赤色で塗り潰し
+                        dst.ucharPtr(i, j)[0] = 255;
+                        dst.ucharPtr(i, j)[1] = 0;
+                        dst.ucharPtr(i, j)[2] = 0;
+                    }
+                }
+            }
+            cv.imshow('output_img', dst);
+            src.delete();
+            mask.delete();
+            dst.delete();
 
             const t3 = performance.now();
             document.getElementById("time").innerHTML = `Time[ms]: Total = ${(t3 - t0).toFixed(3)},
