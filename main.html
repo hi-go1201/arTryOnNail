@@ -64,7 +64,7 @@
         async function initModel() {
             try {
                 //let model = await tflite.loadTFLiteModel("./nails1105.tflite");
-                const path = "./model_nails1105_lite/model.json";
+                const path = "./model_nails1105_rf_lwmbv2/model.json";
                 let model = await tf.loadGraphModel(path); // TensorFlow SavedModelまたはTensorFlow HubモジュールのAPI 
                 MODEL_SIZE = model.input.shape;
                 return model;
@@ -118,7 +118,7 @@
             //const model = await tflite.loadTFLiteModel("./nails_segmentation.tflite");
 
             // load model
-            const path = "./model_nails1105_lite/model.json";
+            const path = "./model_nails1105_rf_lwmbv2/model.json";
             const model = await tf.loadGraphModel(path); // TensorFlow SavedModelまたはTensorFlow HubモジュールのAPI 
             //const model = await tf.loadLayersModel(path);// Kerasモデル
 
@@ -165,7 +165,14 @@
             // Inference
             const t1 = performance.now();
             //let input_reshape = tf.transpose(inputTensor, perm = [0, 3, 1, 2]);
-            const outputTensor = await model.predict([inputTensor]);
+            let outputTensor = await model.predict([inputTensor]);
+            console.log(outputTensor.shape);
+            outputTensor = tf.sigmoid(outputTensor);
+            console.log(outputTensor.shape);
+            outputTensor = outputTensor.squeeze(0);
+            console.log(outputTensor.shape);
+            outputTensor = tf.transpose(outputTensor, perm = [1, 2, 0]);
+            outputTensor = outputTensor.resizeNearestNeighbor([224, 224]);
             //console.log(outputTensor.shape);
             //input_reshape.dispose();
             let tmp_canvas = document.getElementById("input_img");
